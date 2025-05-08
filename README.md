@@ -82,7 +82,7 @@ The project addresses the following research questions:
 
 - Compare model performance and reconstruction quality between Top-Down and Circular sampling strategies across different feature combinations.
 
-
+- What if we only have one model instead of 100 ?!
 
 # Findings
 
