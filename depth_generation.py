@@ -21,7 +21,7 @@ def remove_iqr_outliers(df, column):
 
 if __name__ == '__main__':
     
-    DIR = r'data\raw\TopDown\max\Spatial_STD'
+    DIR = r'data\raw\TopDown\max\STD'
     IMAGES = os.listdir(DIR)
     image_data = sorted(IMAGES,key=numericalSort)
 
@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
         ret, thresh_img = cv2.threshold(image, lower_threhold, 255, cv2.THRESH_BINARY)
 
-        cv2.imwrite(f'out/{i}.png', thresh_img)
+        cv2.imwrite(f'out/manual_depth/{i+1}.png', thresh_img)
 
 
     print("Done")
