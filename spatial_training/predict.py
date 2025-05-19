@@ -46,7 +46,7 @@ def test_fn(loader, model):
         #forward
         if torch.cuda.amp.autocast_mode:
             predictions = model(data).squeeze(0)
-            predictions = torch.sigmoid(predictions)
+            predictions = torch.sigmoid(predictions) > 0.5
 
             predictions = predictions.permute(1, 2, 0).cpu().detach().numpy()
             cv2.imwrite(f'spatial_training/out/{idx}.tiff', predictions.astype(np.float32))

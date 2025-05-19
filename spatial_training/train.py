@@ -134,7 +134,7 @@ def main():
     criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
     
     optimizer = optim.Adam(model.parameters(),
-                              lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY, momentum=MOMENTUM, foreach=True)
+                              lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY, foreach=True)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5)  # goal: maximize Dice score
     grad_scaler = torch.cuda.amp.GradScaler(enabled=AMP)
     

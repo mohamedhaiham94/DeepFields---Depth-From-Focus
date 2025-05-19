@@ -25,6 +25,7 @@ develop-eggs/
 dist/
 downloads/
 out/
+spatial_training/checkpoints
 eggs/
 .eggs/
 lib/
