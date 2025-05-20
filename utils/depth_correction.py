@@ -21,7 +21,7 @@ import Imath
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
-DIR = r'd:\Research\3-Research(DeepFields)\Experiment\Depth\DeepFields - Depth From Focus\data\raw\Depth'
+DIR = r'd:\Research\3-Research(DeepFields)\Experiment\Depth\Mohamed\damage_topDown\Depth'
 files = os.listdir(DIR)
 
 def read_exr():
@@ -51,11 +51,12 @@ def read_exr():
 for file in files:
     # Load the OpenEXR file
     image_data, dimensions = read_exr()
+    image_dataa = abs(image_data['G'].astype(np.float32))
 
-    image_dataa = abs(image_data['G'].astype(np.float32) - 5) # the 5 here means the distance between the near clipping plane and the ground
-    
+    # Not used anymore.
+    # image_dataa = abs(image_data['G'].astype(np.float32) - 5) # the 5 here means the distance between the near clipping plane and the ground
     # By subtracting the max value from the depth map we say that pixel is on the plane and focus
     # and should have value of zero
-    depth_map = image_dataa.max() - image_dataa
+    # depth_map = image_dataa.max() - image_dataa
 
-    iio.imwrite(os.path.join(DIR, file.split('.')[0]+'.tiff'), np.array(depth_map))
+    iio.imwrite(os.path.join(DIR, file.split('.')[0]+'.tiff'), np.array(image_dataa))
