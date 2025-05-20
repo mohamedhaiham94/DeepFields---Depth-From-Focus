@@ -51,12 +51,15 @@ def read_exr():
 for file in files:
     # Load the OpenEXR file
     image_data, dimensions = read_exr()
-    image_dataa = abs(image_data['G'].astype(np.float32))
+    image_data = image_data['G'].astype(np.float32)
+    image_data = image_data.max() - image_data
+    binary_depth = (image_data > 0).astype(np.uint8)
 
+    
     # Not used anymore.
     # image_dataa = abs(image_data['G'].astype(np.float32) - 5) # the 5 here means the distance between the near clipping plane and the ground
     # By subtracting the max value from the depth map we say that pixel is on the plane and focus
     # and should have value of zero
     # depth_map = image_dataa.max() - image_dataa
 
-    iio.imwrite(os.path.join(DIR, file.split('.')[0]+'.tiff'), np.array(image_dataa))
+    iio.imwrite(os.path.join(DIR, file.split('.')[0]+'.png'), np.array(binary_depth) * 255)
