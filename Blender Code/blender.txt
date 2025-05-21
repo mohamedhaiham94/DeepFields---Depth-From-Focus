@@ -1,0 +1,234 @@
+import bpy
+import math
+
+## List of camera positions (x, y, z) and rotations (in degrees)
+
+# Parameters
+num_cameras = 100  # Number of cameras to place around the object
+
+camera_positions = []
+
+
+############# For Center Percpective depth map
+
+location = [(1, 0 ,5)]
+#location = [(0, 0 ,5)]
+rotation = [(0,0,0)]
+
+############# For top-down grid
+
+#location = [
+#(-2.25, 2.25, 5), (-1.75, 2.25, 5), (-1.25, 2.25, 5), (-0.75, 2.25, 5), (-0.25, 2.25, 5), 
+#(0.25, 2.25, 5), (0.75, 2.25, 5), (1.25, 2.25, 5), (1.75, 2.25, 5), (2.25, 2.25, 5),
+
+#(-2.25, 1.75, 5), (-1.75, 1.75, 5), (-1.25, 1.75, 5), (-0.75, 1.75, 5), (-0.25, 1.75, 5), 
+#(0.25, 1.75, 5), (0.75, 1.75, 5), (1.25, 1.75, 5), (1.75, 1.75, 5), (2.25, 1.75, 5),
+
+#(-2.25, 1.25, 5), (-1.75, 1.25, 5), (-1.25, 1.25, 5), (-0.75, 1.25, 5), (-0.25, 1.25, 5), 
+#(0.25, 1.25, 5), (0.75, 1.25, 5), (1.25, 1.25, 5), (1.75, 1.25, 5), (2.25, 1.25, 5),
+
+#(-2.25, 0.75, 5), (-1.75, 0.75, 5), (-1.25, 0.75, 5), (-0.75, 0.75, 5), (-0.25, 0.75, 5), 
+#(0.25, 0.75, 5), (0.75, 0.75, 5), (1.25, 0.75, 5), (1.75, 0.75, 5), (2.25, 0.75, 5),
+
+#(-2.25, 0.25, 5), (-1.75, 0.25, 5), (-1.25, 0.25, 5), (-0.75, 0.25, 5), (-0.25, 0.25, 5), 
+#(0.25, 0.25, 5), (0.75, 0.25, 5), (1.25, 0.25, 5), (1.75, 0.25, 5), (2.25, 0.25, 5),
+
+#(-2.25, -0.25, 5), (-1.75, -0.25, 5), (-1.25, -0.25, 5), (-0.75, -0.25, 5), (-0.25, -0.25, 5), 
+#(0.25, -0.25, 5), (0.75, -0.25, 5), (1.25, -0.25, 5), (1.75, -0.25, 5), (2.25, -0.25, 5),
+
+#(-2.25, -0.75, 5), (-1.75, -0.75, 5), (-1.25, -0.75, 5), (-0.75, -0.75, 5), (-0.25, -0.75, 5), 
+#(0.25, -0.75, 5), (0.75, -0.75, 5), (1.25, -0.75, 5), (1.75, -0.75, 5), (2.25, -0.75, 5),
+
+#(-2.25, -1.25, 5), (-1.75, -1.25, 5), (-1.25, -1.25, 5), (-0.75, -1.25, 5), (-0.25, -1.25, 5), 
+#(0.25, -1.25, 5), (0.75, -1.25, 5), (1.25, -1.25, 5), (1.75, -1.25, 5), (2.25, -1.25, 5),
+
+#(-2.25, -1.75, 5), (-1.75, -1.75, 5), (-1.25, -1.75, 5), (-0.75, -1.75, 5), (-0.25, -1.75, 5), 
+#(0.25, -1.75, 5), (0.75, -1.75, 5), (1.25, -1.75, 5), (1.75, -1.75, 5), (2.25, -1.75, 5),
+
+#(-2.25, -2.25, 5), (-1.75, -2.25, 5), (-1.25, -2.25, 5), (-0.75, -2.25, 5), (-0.25, -2.25, 5), 
+#(0.25, -2.25, 5), (0.75, -2.25, 5), (1.25, -2.25, 5), (1.75, -2.25, 5), (2.25, -2.25, 5)
+#]
+
+#rotation = [(0,0,0)] * 100
+
+
+
+############ For circular pattern  
+
+## location (x,y,z) z is the height should be as close as possible to the scene
+
+## rotation (tilt,roll,yaw)  in blender if you are at positive x axis lets say (10,0)
+## and looking at the origin (0,0) then the yaw should be 90 degrees, and going 
+## counterclockwise from there the compass should increase.
+
+#location = [(2.25, 0.0, 5), (2.245560138963611, 0.1412786689409551, 5), (2.2322580779575754, 0.2819997755196846, 5), (2.2101463141395494, 0.4216079578178804, 5), (2.17931211253942, 0.5595522461209232, 5), (2.1398771616640953, 0.6952882373436317, 5), (2.0919970932485654, 0.8282802435405254, 5), (2.0358608680485437, 0.9580034060214137, 5), (1.971690030098693, 1.0839457667288595, 5), (1.899737832379534, 1.2056102887027424, 5), (1.8202882373436318, 1.3225168176580646, 5), (1.7336547962455255, 1.434203976934552, 5), (1.640179411698176, 1.5402309883395495, 5), (1.5402309883395493, 1.640179411698176, 5), (1.4342039769345516, 1.7336547962455258, 5), (1.3225168176580644, 1.8202882373436318, 5), (1.2056102887027422, 1.899737832379534, 5), (1.083945766728859, 1.9716900300986933, 5), (0.9580034060214135, 2.035860868048544, 5), (0.8282802435405252, 2.091997093248566, 5), (0.6952882373436318, 2.1398771616640953, 5), (0.5595522461209231, 2.17931211253942, 5), (0.4216079578178802, 2.2101463141395494, 5), (0.2819997755196846, 2.2322580779575754, 5), (0.14127866894095492, 2.245560138963611, 5), (-3.6182759617724325e-16, 2.25, 5), (-0.14127866894095514, 2.245560138963611, 5), (-0.2819997755196848, 2.232258077957575, 5), (-0.42160795781788085, 2.2101463141395494, 5), (-0.5595522461209235, 2.17931211253942, 5), (-0.695288237343632, 2.1398771616640953, 5), (-0.8282802435405254, 2.091997093248566, 5), (-0.9580034060214137, 2.0358608680485437, 5), (-1.0839457667288597, 1.9716900300986928, 5), (-1.205610288702743, 1.8997378323795338, 5), (-1.3225168176580644, 1.8202882373436318, 5), (-1.434203976934552, 1.7336547962455258, 5), (-1.5402309883395495, 1.6401794116981758, 5), (-1.6401794116981763, 1.540230988339549, 5), (-1.733654796245526, 1.4342039769345514, 5), (-1.8202882373436315, 1.3225168176580648, 5), (-1.899737832379534, 1.2056102887027424, 5), (-1.971690030098693, 1.0839457667288592, 5), (-2.035860868048544, 0.9580034060214131, 5), (-2.091997093248566, 0.828280243540525, 5), (-2.1398771616640957, 0.695288237343631, 5), (-2.17931211253942, 0.5595522461209234, 5), (-2.2101463141395494, 0.4216079578178803, 5), (-2.2322580779575754, 0.2819997755196842, 5), (-2.245560138963611, 0.14127866894095456, 5), (-2.25, -7.236551923544865e-16, 5), (-2.245560138963611, -0.14127866894095503, 5), (-2.2322580779575754, -0.28199977551968464, 5), (-2.2101463141395494, -0.42160795781788074, 5), (-2.17931211253942, -0.5595522461209238, 5), (-2.1398771616640953, -0.6952882373436324, 5), (-2.0919970932485654, -0.8282802435405262, 5), (-2.0358608680485437, -0.9580034060214135, 5), (-1.971690030098693, -1.0839457667288597, 5), (-1.8997378323795338, -1.2056102887027427, 5), (-1.8202882373436313, -1.322516817658065, 5), (-1.7336547962455253, -1.4342039769345525, 5), (-1.640179411698176, -1.5402309883395495, 5), (-1.5402309883395493, -1.640179411698176, 5), (-1.4342039769345514, -1.733654796245526, 5), (-1.3225168176580648, -1.8202882373436315, 5), (-1.2056102887027418, -1.8997378323795344, 5), (-1.0839457667288595, -1.971690030098693, 5), (-0.9580034060214123, -2.0358608680485446, 5), (-0.8282802435405251, -2.091997093248566, 5), (-0.695288237343632, -2.1398771616640953, 5), (-0.5595522461209225, -2.1793121125394204, 5), (-0.4216079578178804, -2.2101463141395494, 5), (-0.2819997755196834, -2.2322580779575754, 5), (-0.14127866894095473, -2.245560138963611, 5), (-4.1331829471223167e-16, -2.25, 5), (0.14127866894095586, -2.245560138963611, 5), (0.2819997755196845, -2.2322580779575754, 5), (0.4216079578178815, -2.2101463141395494, 5), (0.5595522461209236, -2.17931211253942, 5), (0.6952882373436313, -2.1398771616640957, 5), (0.8282802435405261, -2.0919970932485654, 5), (0.9580034060214133, -2.035860868048544, 5), (1.0839457667288603, -1.9716900300986926, 5), (1.2056102887027427, -1.8997378323795338, 5), (1.3225168176580657, -1.8202882373436307, 5), (1.4342039769345525, -1.7336547962455253, 5), (1.5402309883395493, -1.640179411698176, 5), (1.6401794116981767, -1.5402309883395486, 5), (1.733654796245526, -1.4342039769345516, 5), (1.8202882373436324, -1.3225168176580633, 5), (1.8997378323795342, -1.2056102887027418, 5), (1.971690030098693, -1.0839457667288595, 5), (2.035860868048544, -0.9580034060214124, 5), (2.091997093248566, -0.8282802435405252, 5), (2.139877161664096, -0.6952882373436302, 5), (2.1793121125394204, -0.5595522461209226, 5), (2.2101463141395494, -0.4216079578178805, 5), (2.2322580779575754, -0.2819997755196835, 5), (2.245560138963611, -0.14127866894095484, 5)]
+
+#rotation = [(24.23, 0, 90.0), (24.23, 0, 93.6), (24.23, 0, 97.2), (24.23, 0, 100.8), (24.23, 0, 104.4), (24.23, 0, 108.0), (24.23, 0, 111.6), (24.23, 0, 115.2), (24.23, 0, 118.8), (24.23, 0, 122.4), (24.23, 0, 126.0), (24.23, 0, 129.6), (24.23, 0, 133.2), (24.23, 0, 136.8), (24.23, 0, 140.4), (24.23, 0, 144.0), (24.23, 0, 147.6), (24.23, 0, 151.20000000000002), (24.23, 0, 154.8), (24.23, 0, 158.4), (24.23, 0, 162.0), (24.23, 0, 165.60000000000002), (24.23, 0, 169.2), (24.23, 0, 172.8), (24.23, 0, 176.4), (24.23, 0, 180.0), (24.23, 0, 183.60000000000002), (24.23, 0, 187.2), (24.23, 0, 190.8), (24.23, 0, 194.4), (24.23, 0, 198.0), (24.23, 0, 201.60000000000002), (24.23, 0, 205.2), (24.23, 0, 208.8), (24.23, 0, 212.40000000000003), (24.23, 0, 216.0), (24.23, 0, 219.6), (24.23, 0, 223.20000000000002), (24.23, 0, 226.8), (24.23, 0, 230.4), (24.23, 0, 234.0), (24.23, 0, 237.6), (24.23, 0, 241.20000000000002), (24.23, 0, 244.8), (24.23, 0, 248.4), (24.23, 0, 252.00000000000003), (24.23, 0, 255.6), (24.23, 0, 259.20000000000005), (24.23, 0, 262.8), (24.23, 0, 266.4), (24.23, 0, 270.0), (24.23, 0, 273.6), (24.23, 0, 277.20000000000005), (24.23, 0, 280.8), (24.23, 0, 284.4), (24.23, 0, 288.0), (24.23, 0, 291.6), (24.23, 0, 295.20000000000005), (24.23, 0, 298.8), (24.23, 0, 302.4), (24.23, 0, 306.0), (24.23, 0, 309.6), (24.23, 0, 313.20000000000005), (24.23, 0, 316.8), (24.23, 0, 320.4), (24.23, 0, 324.0), (24.23, 0, 327.6), (24.23, 0, 331.20000000000005), (24.23, 0, 334.80000000000007), (24.23, 0, 338.4), (24.23, 0, 342.0), (24.23, 0, 345.6), (24.23, 0, 349.2), (24.23, 0, 352.8), (24.23, 0, 356.40000000000003), (24.23, 0, 360.0), (24.23, 0, 363.6), (24.23, 0, 367.2), (24.23, 0, 370.8), (24.23, 0, 374.40000000000003), (24.23, 0, 378.0), (24.23, 0, 381.6), (24.23, 0, 385.2), (24.23, 0, 388.8), (24.23, 0, 392.40000000000003), (24.23, 0, 396.00000000000006), (24.23, 0, 399.6), (24.23, 0, 403.2), (24.23, 0, 406.8), (24.23, 0, 410.40000000000003), (24.23, 0, 414.00000000000006), (24.23, 0, 417.6), (24.23, 0, 421.2), (24.23, 0, 424.8), (24.23, 0, 428.40000000000003), (24.23, 0, 432.00000000000006), (24.23, 0, 435.6), (24.23, 0, 439.2), (24.23, 0, 442.8), (24.23, 0, 446.40000000000003)]
+
+
+
+
+
+
+#bpy.ops.object.light_add(type='AREA', location=(0, 0, 0))
+#sun = bpy.context.object
+#sun.name = "Area Light"
+#sun.data.energy = 10.0  # Adjust this value for intensity (e.g., 10.0 for sunny, 2.0 for cloudy)
+
+###############
+'''
+import mathutils
+# Set camera position
+camera = bpy.context.active_object  # Assuming the camera is the active object
+camera.location = mathutils.Vector((0, 0, 5))  # Set camera position at (0, 0, -5)
+ 
+# Define the front vector (direction the camera is facing)
+front_vector = mathutils.Vector((0, 0, 1))  # Camera is looking along the positive Z-axis
+ 
+# Define the up vector (the direction that is considered "up" for the camera)
+up_vector = mathutils.Vector((-1, 0, 0))  # Camera's up is along the negative X-axis
+
+angle = math.radians(45) 
+
+# Create a rotation matrix to rotate around the Z-axis
+rotation_matrix = mathutils.Matrix.Rotation(angle, 4, 'Z')  # 4 for 4x4 matrix (3D)
+
+# Apply this rotation to both front and up vectors
+front_vector_rotated = rotation_matrix @ front_vector
+up_vector_rotated = rotation_matrix @ up_vector
+
+# Now calculate the right vector (cross product of up and front vectors)
+right_vector = up_vector_rotated.cross(front_vector_rotated).normalized()
+
+# Recalculate the up vector to make sure it's orthogonal to both front and right
+up_vector_rotated = front_vector_rotated.cross(right_vector).normalized()
+
+# Create the rotation matrix from the right, up, and front vectors
+rotation_matrix_final = mathutils.Matrix([
+    [right_vector.x, up_vector_rotated.x, -front_vector_rotated.x],
+    [right_vector.y, up_vector_rotated.y, -front_vector_rotated.y],
+    [right_vector.z, up_vector_rotated.z, -front_vector_rotated.z]
+])
+'''
+###############
+
+# two suns and the sun is 5
+
+#default was 13.9
+bpy.data.materials["Corn_Shd.003"].node_tree.nodes["Principled BSDF"].inputs[3].default_value = 1.1
+
+
+bpy.ops.object.light_add(type='SUN')
+sun = bpy.context.object
+sun.name = "SunLight"
+sun.data.energy = 5.0  # Adjust this value for intensity (e.g., 10.0 for sunny, 2.0 for cloudy)
+bpy.context.object.data.use_shadow = False
+
+clip_start = 1.97 #default 1 - 2
+clip_end = 2 #default 100 - 5.1
+slice_spacing = 0.03 #default 0.03
+## Loop to generate camera positions around the object
+for i in range(num_cameras):
+    # Append camera position and rotation
+    camera_positions.append(
+        {
+            "location": location[0],  # Camera position default i instead of 0
+            "rotation": rotation[0],  # Rotate to face the object x tilt, y roll, z yaw/compass
+            "fov": 45,  # Field of view
+            "clip_start": clip_start,  # Near clipping plane
+            "clip_end": clip_end,  # Far clipping plane
+            "aspect_ratio": (1, 1),  # Aspect ratio
+        }
+    )
+    clip_start += slice_spacing
+    clip_end += slice_spacing
+        
+
+
+
+# Loop through the camera positions and create cameras
+for i, cam_data in enumerate(camera_positions):
+   # Clear existing cameras
+   bpy.ops.object.select_by_type(type='CAMERA')
+   bpy.ops.object.delete()
+
+   # Create a new scene or use the existing one
+   scene = bpy.context.scene
+    
+   # Enable depth rendering in the compositor
+   scene.use_nodes = True
+   tree = scene.node_tree
+   nodes = tree.nodes
+
+   # Clear default nodes
+   for node in nodes:
+       nodes.remove(node)
+
+   # Create input render layer node
+   render_layers = nodes.new(type='CompositorNodeRLayers')
+
+   # Create a normalize node to scale depth values
+   normalize_node = nodes.new(type='CompositorNodeNormalize')
+   normalize_node.inputs[0].default_value = 1  # Ensure normalization is applied
+
+
+   # Create output file node for depth
+   depth_file_output = nodes.new(type='CompositorNodeOutputFile')
+   depth_file_output.base_path = r"C:\Users\cgpc2\Desktop\Blender\Mohamed\Test_Nowrin\Depth\\"
+   
+   depth_file_output.file_slots[0].path = "depth####"
+   depth_file_output.format.file_format = 'OPEN_EXR'  # Save depth map in OpenEXR format
+   depth_file_output.format.color_depth = '32'  # Use 32-bit float for high precision
+
+
+   #depth_file_output.format.file_format = 'TIFF'  # Save depth map as TIFF
+   #depth_file_output.format.color_depth = '16'  # Use 16-bit depth
+   #depth_file_output.format.color_mode = 'BW'  # Use 16-bit depth
+   #depth_file_output.format.tiff_codec = 'NONE'  # Disable compression
+
+
+   #tree.links.new(render_layers.outputs['Depth'], normalize_node.inputs['Value'])
+   #tree.links.new(normalize_node.outputs['Value'], depth_file_output.inputs['Image'])
+   tree.links.new(render_layers.outputs['Depth'], depth_file_output.inputs['Image'])
+   
+   # Create a new camera
+   bpy.ops.object.camera_add(location=cam_data["location"])
+   camera = bpy.context.object
+   camera.name = f"Camera_{i+1}"
+   
+   # Set camera rotation (convert degrees to radians)
+   camera.rotation_euler = (
+       math.radians(cam_data["rotation"][0]),
+       math.radians(cam_data["rotation"][1]),
+       math.radians(cam_data["rotation"][2]),
+   )
+   
+   # Apply this rotation matrix to the camera
+   #camera.rotation_mode = 'QUATERNION'  # Using quaternion for rotation
+   #camera.rotation_quaternion = rotation_matrix.to_quaternion()  # Apply rotation
+   
+   # Set the field of view (FOV) for the camera
+   camera.data.angle = math.radians(cam_data["fov"])  # Convert FOV from degrees to radians
+   
+       # Set the aspect ratio of the render
+   aspect_ratio = cam_data["aspect_ratio"]
+   scene.render.resolution_x = 1024  # Set base resolution
+   scene.render.resolution_y = int(1024 * (aspect_ratio[1] / aspect_ratio[0]))  # Maintain aspect ratio
+   
+   # Set near and far clipping planes
+   camera.data.clip_start = cam_data["clip_start"]
+   camera.data.clip_end = cam_data["clip_end"]
+
+   # Set the camera as the active camera for rendering
+   scene.camera = camera
+   
+   # Render the scene and save the image
+   render_path = r"C:\Users\cgpc2\Desktop\Blender\Mohamed\Test_Nowrin\Images\\"+str(i+1)+".png"
+   scene.render.filepath = render_path
+   bpy.ops.render.render(write_still=True)
+   
+   # Render the depth map
+   depth_file_output.file_slots[0].path = f"depth_camera_{i+1}_####"
+   bpy.ops.render.render(write_still=True)
+
+print("Rendering completed for all cameras.")
