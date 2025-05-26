@@ -10,7 +10,7 @@ from model import UNET
 
 import numpy as np
 
-from utils import *
+from integral_utils import *
 
 import logging
 
@@ -24,12 +24,11 @@ BATCH_SIZE = 32
 NUM_EPOCHS = 1
 NUM_WORKER = 1
 
-IMG_WIDTH = 128
-IMG_HEIGHT = 128
+IMG_WIDTH = 512
+IMG_HEIGHT = 512
 
 
-TEST_STD_IMAGE_DIR = "data/Giovanni_data/angular_STD/max_results"
-TEST_ENTROPY_IMAGE_DIR = "data/Giovanni_data/entropy/max_results"
+TEST_STD_IMAGE_DIR = "data/spatial_data/test/integral"
 
 PATH = "spatial_training/checkpoints"
 
@@ -37,18 +36,28 @@ def test_fn(loader, model):
     loop = tqdm(loader)
 
     for idx, (data) in enumerate(loop):
-        data = data.to(DEVICE)
+        data = data.to(DEVICE).float()
         # data = (data - data.min()) / (data.max() - data.min())
         
         # label = label.unsqueeze(1).to(DEVICE)
 
         #forward
         if torch.cuda.amp.autocast_mode:
-            predictions = model(torch.tensor(data).permute(0, 3, 1, 2)).squeeze(0)
-            predictions = torch.sigmoid(predictions) > 0.5
+
+            predictions = model(torch.tensor(data)).squeeze(0)
+
+            
+            #predictions[predictions < 0]=0
+            #predictions[predictions > 0]=1
+            predictions = torch.sigmoid(predictions) > 0.1
 
             predictions = predictions.permute(1, 2, 0).cpu().detach().numpy()
-            cv2.imwrite(f'spatial_training/out/{idx}.png', predictions.astype(np.float32) * 255)
+
+            out = predictions.astype(np.uint8) * 255
+            out = np.dstack((out, out, out)) * data.squeeze(0).permute(1, 2, 0).cpu().detach().numpy()
+            # print(out.shape)
+            # sdf
+            cv2.imwrite(f'spatial_training/out/{idx}.png', out[:,:,::-1])
             
 
         # print(loss.item())
@@ -57,7 +66,7 @@ def test_fn(loader, model):
 def main():
 
     test_transform = A.Compose([
-        # A.RandomCrop(IMG_HEIGHT, IMG_WIDTH),
+        #A.Resize(IMG_HEIGHT, IMG_WIDTH),
         # A.Normalize(
         #     mean= [0, 0, 0,],
         #     std= [1, 1, 1],
@@ -67,16 +76,15 @@ def main():
     ])
 
 
-    model = UNET(in_channels=2, out_channels=1).to(DEVICE)
-    model.load_state_dict(torch.load(os.path.join(PATH, 'checkpoint_manual_depth_0.47201173866983176.pt'), weights_only=True))
+    model = UNET(in_channels=3, out_channels=1).to(DEVICE)
+    model.load_state_dict(torch.load(os.path.join(PATH, 'checkpoint_integral_depth_4.pt'), weights_only=True))
     model.to('cuda')
     model.eval()
 
     test_loader = get_test_loader(
         TEST_STD_IMAGE_DIR,
-        TEST_ENTROPY_IMAGE_DIR,
         None,
-        None
+        test_transform
     )
 
     for _ in range(NUM_EPOCHS):

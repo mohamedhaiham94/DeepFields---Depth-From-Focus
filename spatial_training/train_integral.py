@@ -1,7 +1,7 @@
 import torch
 import torch.optim as optim
 import torch.nn as nn
-
+import torchvision
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import torch.nn.functional as F
@@ -14,42 +14,47 @@ from integral_utils import *
 
 import logging
 import matplotlib.pyplot as plt
+
+from torch.utils.tensorboard import SummaryWriter
+
+writer = SummaryWriter('spatial_training/runs')
+
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 #HyperParameters
 
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 1e-3
 WEIGHT_DECAY = 1e-8
 MOMENTUM = 0.999
 AMP = False
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 16
-NUM_EPOCHS = 30
+BATCH_SIZE = 3
+NUM_EPOCHS = 5
 NUM_WORKER = 1
 
-IMG_WIDTH = 64
-IMG_HEIGHT = 64
+IMG_WIDTH = 1024
+IMG_HEIGHT = 1024
 
-TRAIN_STD_IMAGE_DIR = "data/spatial_data/train/STD"
-TRAIN_ENTROPY_IMAGE_DIR = "data/spatial_data/train/Entropy"
-TRAIN_DEPTH_MASK_DIR = "data/spatial_data/train/manual_depth"
+TRAIN_STD_IMAGE_DIR = "data/spatial_data/train/integral"
+TRAIN_DEPTH_MASK_DIR = "data/spatial_data/train/Depth"
 
-VAL_STD_IMAGE_DIR = "data/spatial_data/validate/STD"
-VAL_ENTROPY_IMAGE_DIR = "data/spatial_data/validate/Entropy"
-VAL_DEPTH_MASK_DIR = "data/spatial_data/validate/manual_depth"
+VAL_STD_IMAGE_DIR = "data/spatial_data/validate/integral"
+VAL_DEPTH_MASK_DIR = "data/spatial_data/validate/Depth"
 
 
 PATH = "spatial_training/checkpoints"
-def train_fn(loader, val_loader, model, optimizer, criterion, grad_scaler):
+def train_fn(loader, val_loader, model, optimizer, criterion, grad_scaler, epoch):
     loop = tqdm(loader)
     gradient_clipping: float = 1.0
     
     model.train()
+    train_running_loss = 0
+
     for idx, (data, label) in enumerate(loop):
         optimizer.zero_grad()
 
-        data = data.to(DEVICE)
-        label = label.to(DEVICE)
+        data = data.to(DEVICE).float()
+        label = label.to(DEVICE).float()
         # print(data[0,0,::].shape, label[0,::].shape)
         # fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
@@ -68,47 +73,79 @@ def train_fn(loader, val_loader, model, optimizer, criterion, grad_scaler):
         #forward
         if torch.cuda.amp.autocast_mode:
             predictions = model(data)
+
+
+ 
             loss = criterion(predictions.squeeze(1), label.float())
-            loss += dice_loss(F.sigmoid(predictions.squeeze(1)), label.float(), multiclass=False)
-            
+            #loss += dice_loss(F.sigmoid(predictions.squeeze(1)), label.float(), multiclass=False)
+            train_running_loss += loss.item()
+
         #backward
         optimizer.zero_grad(set_to_none=True)
-        grad_scaler.scale(loss).backward()
-        grad_scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
-        grad_scaler.step(optimizer)
-        grad_scaler.update()
-        
+        #grad_scaler.scale(loss).backward()
+        #grad_scaler.unscale_(optimizer)
+        #torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
+        #grad_scaler.step(optimizer)
+        #grad_scaler.update()
+        loss.backward()
+        optimizer.step()
+
         # print(loss.item())
         loop.set_postfix(loss = loss.item())
     
+    train_loss = train_running_loss / (idx + 1)
     
+    writer.add_scalar("Loss/train", train_loss, epoch)
+
     model.eval()
     dice_score = 0
+    val_running_loss = 0
 
     with torch.no_grad():
-        for x, y in val_loader:
-            x = x.to(DEVICE)
-            y = y.to(DEVICE)
-            
-            mask_pred = (F.sigmoid(model(x)) > 0.5).float()
+        for idx, (x, y) in enumerate(val_loader):
+            x = x.to(DEVICE).float()
+            y = y.to(DEVICE).float()
+
+            # mask_pred = (F.sigmoid(model(x)) > 0.5).float()
             # compute the Dice score
-            dice_score += dice_coeff(mask_pred.squeeze(1), y, reduce_batch_first=False)
+            #dice_score += dice_coeff(mask_pred.squeeze(1), y, reduce_batch_first=False)
+            
+            predictions = model(x)
+            # print(x.shape)
+            # print(y.unsqueeze(1).shape)
+            # print(predictions.shape)
+            # sdf
+            loss = criterion(predictions.squeeze(1), y.float())
 
-    print(
-        dice_score / max(len(val_loader), 1)
-    )
+            img_grid_x = torchvision.utils.make_grid(x)
+            img_grid_pred = torchvision.utils.make_grid((torch.sigmoid(predictions) > 0.15) * 255)
+            img_grid_mask = torchvision.utils.make_grid(y.unsqueeze(1))
+            # print(type(img_grid_y))
+            writer.add_image(tag='input', img_tensor=img_grid_x, global_step=epoch)
+            writer.add_image(tag='mask', img_tensor=img_grid_mask, global_step=epoch)
+            writer.add_image(tag='predection', img_tensor=img_grid_pred, global_step=epoch)
+            val_running_loss += loss.item()
 
-    score = dice_score / max(len(val_loader), 1)
+    val_loss = val_running_loss / (idx + 1)
+    print("-"*30)
+    print(f"Train Loss EPOCH {epoch+1}: {train_loss:.4f}")
+    print(f"Valid Loss EPOCH {epoch+1}: {val_loss:.4f}")
+    print("-"*30)
+
+    #print(
+    #    dice_score / max(len(val_loader), 1), loss.item()
+    #)
+
+    #score = dice_score / max(len(val_loader), 1)
     
-    torch.save(model.state_dict(), os.path.join(PATH, f'checkpoint_manual_depth_{score}.pt'))
+    torch.save(model.state_dict(), os.path.join(PATH, f'checkpoint_integral_depth_{epoch}.pt'))
 
 
 
 def main():
 
     train_transform = A.Compose([
-        A.RandomCrop(IMG_HEIGHT, IMG_WIDTH),
+        #A.RandomCrop(IMG_HEIGHT, IMG_WIDTH),
         A.Rotate(limit=35, p=1.0),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=1.0),
@@ -121,7 +158,7 @@ def main():
     ])
 
     validate_transform = A.Compose([
-        A.CenterCrop(IMG_HEIGHT, IMG_WIDTH),
+        #A.CenterCrop(IMG_HEIGHT, IMG_WIDTH),
         # A.Normalize(
         #     mean= [0, 0, 0,],
         #     std= [1, 1, 1],
@@ -131,7 +168,7 @@ def main():
     ])
 
 
-    model = UNET(in_channels=4, out_channels=1).to(DEVICE)
+    model = UNET(in_channels=3, out_channels=1).to(DEVICE)
     criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
     
     optimizer = optim.Adam(model.parameters(),
@@ -142,18 +179,16 @@ def main():
     
     train_loader, val_loader = get_loader(
         TRAIN_STD_IMAGE_DIR,
-        TRAIN_ENTROPY_IMAGE_DIR,
         TRAIN_DEPTH_MASK_DIR,
         VAL_STD_IMAGE_DIR,
-        VAL_ENTROPY_IMAGE_DIR,
         VAL_DEPTH_MASK_DIR,
         BATCH_SIZE,
         train_transform,
         validate_transform
     )
 
-    for _ in range(NUM_EPOCHS):
-        train_fn(train_loader, val_loader, model, optimizer, criterion, grad_scaler)
+    for epoch in range(NUM_EPOCHS):
+        train_fn(train_loader, val_loader, model, optimizer, criterion, grad_scaler, epoch)
 
 
 

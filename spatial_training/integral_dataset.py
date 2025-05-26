@@ -9,11 +9,10 @@ import cv2
 
 class LoadDataset(Dataset):
     
-    def __init__(self, img_std_dir, img_entropy_dir, img_depth_mask_dir, transform) -> None:
+    def __init__(self, img_std_dir, img_depth_mask_dir, transform) -> None:
         super().__init__()
 
-        self.img_std_dir = img_std_dir
-        self.img_entropy_dir = img_entropy_dir
+        self.img_integral_dir = img_std_dir
         self.img_depth_mask_dir = img_depth_mask_dir
         self.transform = transform
 
@@ -24,39 +23,33 @@ class LoadDataset(Dataset):
         return len(self.images)
     
     def __getitem__(self, index):
-        # print(self.images[index])
-        image_std_path = os.path.join(self.img_std_dir, self.images[index])
-        image_entropy_path = os.path.join(self.img_entropy_dir, self.images[index].replace("variance", "entropy"))
+
+        image_integral_path = os.path.join(self.img_integral_dir, self.images[index])
         
         if self.img_depth_mask_dir is not None:
             img_number = self.images[index].split('_')[-1].split('.')[0]
             # For Depth folder
-            # depth_image_name = f'depth_camera_{img_number}_0001.tiff'
+            depth_image_name = f'depth_camera_{img_number}_0001.png'
             
             # For manual_depth folder
-            depth_image_name = f'{img_number}.png'
+            #depth_image_name = f'{img_number}.png'
             
             depth_path = os.path.join(self.img_depth_mask_dir, depth_image_name)
-
-            distance = 0.03
             depth = np.array(Image.open(depth_path))
-            
-            # For Depth folder
-            mask = np.where(depth <= distance, 1, 0)
-            
+
             # For manual_depth folder
             mask = depth / 255
-            mask = 1 - mask
+            #mask = 1 - mask
 
-
-        std_image = np.array(Image.open(image_std_path))
-        entropy_image = np.array(Image.open(image_entropy_path))
+        int_image = np.array(Image.open(image_integral_path))
         
-        image = np.stack((std_image, entropy_image), axis=0)
+        image = int_image[:, :, :3]
+ 
+        #image = np.stack((std_image, entropy_image), axis=0)
         # image = (image - image.min()) / (image.max() - image.min())
         # print(image.max(), image.min())
         # dfg
-        image = image.transpose(1, 2, 0)
+        #image = image.transpose(1, 2, 0)
         # plt.imshow(image)
         # plt.show()
         # tifffile.imwrite('output_2channels.tiff', image)
@@ -66,7 +59,11 @@ class LoadDataset(Dataset):
         # cv2.imwrite(f'spatial_training/out/{4}.png', mask * 255)
 
         if self.img_depth_mask_dir is None:
-            return image
+            augmentation = self.transform(image = image)
+
+            image = augmentation["image"]
+
+            return image/255
 
 
         if self.transform is not None:
@@ -75,16 +72,15 @@ class LoadDataset(Dataset):
             image = augmentation["image"]
             mask = augmentation["mask"]
 
-        return image, mask
+        return image/255, mask
 
 if __name__ == "__main__":
 
-    dataloader = LoadDataset("data/spatial_data/train/STD", 
-                             "data/spatial_data/train/Entropy", 
-                             "data/spatial_data/train/Depth", 
+    dataloader = LoadDataset("data/spatial_data/train/integral", 
+                             "data/spatial_data/train/manual_depth", 
                              None)
     print(dataloader.__len__())
-    image, mask = dataloader.__getitem__(9)
+    image, mask = dataloader.__getitem__(5)
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 

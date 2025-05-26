@@ -1,6 +1,7 @@
 import os, shutil
 import torch
-from dataset import LoadDataset
+#from dataset import LoadDataset
+from integral_dataset import LoadDataset
 from torch.utils.data import DataLoader
 import random
 import torch
@@ -8,8 +9,7 @@ from torch import Tensor
 import torch.nn.functional as F
 
 
-STD_PATH = 'data/spatial_data/train/STD'
-ENTROPY_PATH = 'data/spatial_data/train/Entropy'
+STD_PATH = 'data/spatial_data/train/integral'
 DEPTH_PATH = 'data/spatial_data/train/Depth'
 
 std_imgs = os.listdir(STD_PATH)
@@ -21,27 +21,27 @@ std_imgs.sort()
 validate_ratio = int(len(std_imgs) * 0.2)
 files_to_move = random.sample(std_imgs, validate_ratio)
 
-# for file_name in files_to_move:
-#     # moving the std data from training to validation
-#     shutil.move(os.path.join(STD_PATH, file_name), os.path.join(STD_PATH.replace('train', 'validate'), file_name))
-    
-#     # moving the entropy data from training to validation
-#     entropy_name = file_name.replace("variance", "entropy")
-#     shutil.move(os.path.join(ENTROPY_PATH, entropy_name), os.path.join(ENTROPY_PATH.replace('train', 'validate'), entropy_name))
-    
-#     # moving the depth data from training to validation
-#     img_number = file_name.split('_')[-1].split('.')[0]
-#     depth_image_name = f'depth_camera_{img_number}_0001.tiff'
-#     shutil.move(os.path.join(DEPTH_PATH, depth_image_name), os.path.join(DEPTH_PATH.replace('train', 'validate'), depth_image_name))
+'''
+for file_name in files_to_move:
+    # moving the std data from training to validation
+    shutil.move(os.path.join(STD_PATH, file_name), os.path.join(STD_PATH.replace('train', 'validate'), file_name))
 
+        
+    # moving the depth data from training to validation
+    img_number = file_name.split('_')[-1].split('.')[0]
+
+    depth_image_name = f'depth_camera_{img_number}_0001.png'
+
+    #depth_image_name = f'{img_number}.png'
+    
+    shutil.move(os.path.join(DEPTH_PATH, depth_image_name), os.path.join(DEPTH_PATH.replace('train', 'validate'), depth_image_name))
+'''
 
 
 def get_loader(
         img_std_dir, 
-        img_entropy_dir, 
         img_depth_mask_dir, 
         val_std_dir, 
-        val_entropy_dir, 
         val_depth_mask_dir, 
         batch_size, 
         train_transform, 
@@ -49,7 +49,6 @@ def get_loader(
     
     train_ds = LoadDataset(
         img_std_dir= img_std_dir,
-        img_entropy_dir= img_entropy_dir,
         img_depth_mask_dir= img_depth_mask_dir,
         transform= train_transform
     )
@@ -62,7 +61,6 @@ def get_loader(
 
     val_ds = LoadDataset(
         img_std_dir= val_std_dir,
-        img_entropy_dir= val_entropy_dir,
         img_depth_mask_dir= val_depth_mask_dir,
         transform= validate_transform
     )
@@ -79,14 +77,12 @@ def get_loader(
 
 def get_test_loader(
         img_std_dir, 
-        img_entropy_dir, 
         img_depth_mask_dir, 
         test_transform
         ):
     
     test_ds = LoadDataset(
         img_std_dir= img_std_dir,
-        img_entropy_dir= img_entropy_dir,
         img_depth_mask_dir= None,
         transform= test_transform
     )
@@ -94,7 +90,7 @@ def get_test_loader(
     test_loader = DataLoader(
         test_ds,
         batch_size= 1,
-        shuffle= True
+        shuffle= False
     )
 
     return test_loader
