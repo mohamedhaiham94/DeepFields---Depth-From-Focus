@@ -77,6 +77,31 @@ def sliding_window_std(image, window_size=(2, 2)):
     return std_dev_image
 
 
+
+
+def optimized_angular_STD(rgb_images,alpha_images):
+
+    rgb_stack = np.stack(rgb_images) / 255  # shape: (num_images, height, width, channels)
+    alpha_stack = np.stack(alpha_images)  # shape: (num_images, height, width)
+
+    
+    # Mask RGB images using alpha
+    valid_mask = alpha_stack == 1  # valid pixels only
+    valid_rgb = np.where(valid_mask[..., None], rgb_stack, np.nan)
+
+    angular_std_R = np.nanstd(valid_rgb[:, :, :, 0], axis=0)  # shape: (height, width)
+    angular_std_G = np.nanstd(valid_rgb[:, :, :, 1], axis=0)  # shape: (height, width)
+    angular_std_B = np.nanstd(valid_rgb[:, :, :, 2], axis=0)  # shape: (height, width)
+
+    stacked = np.dstack((angular_std_R, angular_std_G, angular_std_B))
+    
+    max_std = np.max(stacked, axis=2)
+    min_std = np.min(stacked, axis=2)
+    mean_std = np.mean(stacked, axis=2)
+               
+    return min_std,mean_std,max_std
+
+
 def angular_STD(rgb_images,alpha_images):
         height, width, _ = rgb_images[0].shape
         
@@ -98,7 +123,6 @@ def angular_STD(rgb_images,alpha_images):
             for x in range(width):
 
                 pixel_values = np.array([img[y, x] for img, alpha in zip(rgb_images, alpha_images) if alpha[y, x] == 1]) /255
-
                 if pixel_values.shape[0] == 0:
                     continue
                 
