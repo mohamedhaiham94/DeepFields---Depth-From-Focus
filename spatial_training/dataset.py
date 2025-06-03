@@ -22,20 +22,60 @@ class LoadDataset(Dataset):
 
     def __len__(self):
         return len(self.images)
+    def load_images_stack(self):
+    
+        img_std_files = sorted([f for f in os.listdir(self.img_std_dir) if f.endswith('.tiff')],
+                            key=lambda x: int(x.split('_')[-1].split('.')[0]))
+        
+        img_entropy_files = sorted([f for f in os.listdir(self.img_entropy_dir) if f.endswith('.tiff')],
+                            key=lambda x: int(x.split('_')[-1].split('.')[0]))
+        
+        img_depth_mask_files = sorted([f for f in os.listdir(self.img_depth_mask_dir) if f.endswith('.png')],
+                            key=lambda x: int(x.split('_')[2]))
+        
+        print(img_depth_mask_files[69].split('_'), img_entropy_files[69], img_std_files[69])
+        std_images = []
+        entropy_images = []
+        depth_mask_images = []
+        
+        for std_file, entropy_file, depth_file in zip(img_std_files, img_entropy_files, img_depth_mask_files):
+
+            std_img = Image.open(os.path.join(self.img_std_dir, std_file))
+            std_array = np.array(std_img)
+            
+            entropy_img = Image.open(os.path.join(self.img_entropy_dir, entropy_file))
+            entropy_array = np.array(entropy_img)
+            
+            depth_img = Image.open(os.path.join(self.img_depth_mask_dir, depth_file)).convert('L')
+            depth_array = np.array(depth_img)
+            
+            std_images.append(std_array)
+            entropy_images.append(entropy_array)
+            depth_mask_images.append(depth_array)
+
+        return std_images, entropy_images, depth_mask_images
     
     def __getitem__(self, index):
-        # print(self.images[index])
+        print(index)
+        std_images, entropy_images, depth_images = self.load_images_stack()
+        
+        std_stack = np.stack(std_images)  # shape: (num_images, height, width, channels)
+        entropy_stack = np.stack(entropy_images)  # shape: (num_images, height, width)
+        depth_stack = np.stack(depth_images) / 255
+        slice_2x2x100 = std_stack[:, 0:1, 0:1] # z, y, x
+
+        print(std_stack.shape, entropy_stack.shape, depth_stack.shape, slice_2x2x100.shape)
+        print(slice_2x2x100)
+        sdf
         image_std_path = os.path.join(self.img_std_dir, self.images[index])
         image_entropy_path = os.path.join(self.img_entropy_dir, self.images[index].replace("variance", "entropy"))
         
         if self.img_depth_mask_dir is not None:
             img_number = self.images[index].split('_')[-1].split('.')[0]
             # For Depth folder
-            # depth_image_name = f'depth_camera_{img_number}_0001.tiff'
+            depth_image_name = f'depth_camera_{img_number}_0001.tiff'
             
-            # For manual_depth folder
-            depth_image_name = f'{img_number}.png'
-            
+           
             depth_path = os.path.join(self.img_depth_mask_dir, depth_image_name)
 
             distance = 0.03
@@ -63,7 +103,7 @@ class LoadDataset(Dataset):
 
 
         
-        # cv2.imwrite(f'spatial_training/out/{4}.png', mask * 255)
+
 
         if self.img_depth_mask_dir is None:
             return image
@@ -79,12 +119,12 @@ class LoadDataset(Dataset):
 
 if __name__ == "__main__":
 
-    dataloader = LoadDataset("data/spatial_data/train/STD", 
-                             "data/spatial_data/train/Entropy", 
-                             "data/spatial_data/train/Depth", 
+    dataloader = LoadDataset("data/spatial_data/scene_1/STD", 
+                             "data/spatial_data/scene_1/Entropy", 
+                             "data/spatial_data/scene_1/Depth", 
                              None)
-    print(dataloader.__len__())
-    image, mask = dataloader.__getitem__(9)
+
+    image, mask = dataloader.__getitem__(2)
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
