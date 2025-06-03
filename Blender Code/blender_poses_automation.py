@@ -2,11 +2,15 @@ import bpy
 import math
 import random 
 import numpy as np
-## List of camera positions (x, y, z) and rotations (in degrees)
 
 # Parameters
-num_cameras = 2  # Number of cameras to place around the object
 
+# Set seed for reproducibility
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+
+num_cameras = 100  # Number of cameras to place around the object
 camera_positions = []
 
 
@@ -17,6 +21,7 @@ camera_positions = []
 #location = [(0, 2 ,5)]
 #rotation = [(0,0,0)]
 
+## List of camera positions (x, y, z) and rotations (in degrees)
 ############# For top-down grid
 
 location = [
@@ -66,7 +71,7 @@ source_object3 = bpy.data.objects.get("Corn_AgeMature_A")
 source_list = [source_object1, source_object2, source_object3]
 random_source = random.randint(0, 2)
 
-density = 3 # leave 10 meters between each col
+density = 3 # if 1 it means leave 0.7m spacing between col
 damage = 2 #how many damage corn in a col 
 
 
@@ -81,8 +86,9 @@ else:
     x_start, x_end = -7, 7
     y_start, y_end = 7, -7
 
-    x_step = .7 * density # steps will determine the density
-    y_step = -0.7 # steps will determine the density
+    x_step = .7 * density # steps is 70 cm between each row
+    y_step = -0.30 # steps is 30cm between each plant in a col based on 
+    #https://extension.usu.edu/yardandgarden/research/sweet-corn-in-the-garden#:~:text=Planting%20and%20Spacing&text=Plant%20corn%20seeds%201%20inch,continuous%20production%20throughout%20the%20season.
     
     i = 0
     for y in np.arange(y_start, y_end + -1, y_step):
