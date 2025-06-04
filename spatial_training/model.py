@@ -86,6 +86,44 @@ def test():
 
 
 
-if __name__ == "__main__":
+def test_LSTM():
+    x = torch.randn((1, 100, 1, 1, 2))
 
-    test()
+    model = LSTMRegressor(input_dim=2, hidden_dim=64, spatial_size = 1)
+
+    predict = model(x)
+    print(x.shape)
+    print(predict)
+    # assert x.shape == predict.shape
+
+class LSTMRegressor(nn.Module):
+    def __init__(self, input_dim=2, hidden_dim=64, spatial_size = 1):
+        super().__init__()
+        self.spatial_size = spatial_size
+        self.encoder = nn.Sequential(
+            nn.Conv3d(1, 8, kernel_size=(spatial_size,spatial_size,2)),  # (B*T, 1, 1, 1, 2) -> (B*T, 2, 1, 1, 1)
+            nn.ReLU(),
+        )
+        self.lstm = nn.LSTM(input_size=input_dim, hidden_size=hidden_dim, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, 1)
+
+    def forward(self, x): 
+        B, T, D, H, W = x.shape
+        # x = x.unsqueeze(2)  # New shape: (1, 100, 1, spatial_size, spatial_size, 2)
+
+        # #Combine batch and time
+        # x = x.view(-1, 1, self.spatial_size, self.spatial_size, 2)  # Shape: (100, 1, spatial_size, spatial_size, 2)
+
+        # x = self.encoder(x)             # -> (B*T, 2, spatial_size, spatial_size, 1)
+        # print(x.shape)
+        # sdf
+        x = x.view(B, T, 2)             # Flatten back: (B, T, 8)
+
+        out, _ = self.lstm(x)     # (B, 100, H)
+        return self.fc(out)       # (B, 100, 1)
+
+
+
+# if __name__ == "__main__":
+
+#     test_LSTM()

@@ -1,19 +1,16 @@
 import torch
 import torch.optim as optim
 import torch.nn as nn
-
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 import torch.nn.functional as F
-
 from tqdm import tqdm
-from model import UNET
-
-#from utils import *
-from integral_utils import *
-
+from model import LSTMRegressor
+from dataset import LoadDataset
+import os
 import logging
 import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
+
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 
 #HyperParameters
@@ -26,20 +23,10 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 16
 NUM_EPOCHS = 30
 NUM_WORKER = 1
-
-IMG_WIDTH = 64
-IMG_HEIGHT = 64
-
-TRAIN_STD_IMAGE_DIR = "data/spatial_data/train/STD"
-TRAIN_ENTROPY_IMAGE_DIR = "data/spatial_data/train/Entropy"
-TRAIN_DEPTH_MASK_DIR = "data/spatial_data/train/manual_depth"
-
-VAL_STD_IMAGE_DIR = "data/spatial_data/validate/STD"
-VAL_ENTROPY_IMAGE_DIR = "data/spatial_data/validate/Entropy"
-VAL_DEPTH_MASK_DIR = "data/spatial_data/validate/manual_depth"
-
-
+TRAIN_DIR = "data/spatial_data/training_data"
 PATH = "spatial_training/checkpoints"
+
+
 def train_fn(loader, val_loader, model, optimizer, criterion, grad_scaler):
     loop = tqdm(loader)
     gradient_clipping: float = 1.0
@@ -50,26 +37,11 @@ def train_fn(loader, val_loader, model, optimizer, criterion, grad_scaler):
 
         data = data.to(DEVICE)
         label = label.to(DEVICE)
-        # print(data[0,0,::].shape, label[0,::].shape)
-        # fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
-        # # Display the first image in the first subplot
-        # axes[0].imshow(data[0,0,::].cpu().detach().numpy())
-        # axes[0].axis('off')  # Turn off axes
-
-        # # Display the second image in the second subplot
-        # axes[1].imshow(label[0,::].cpu().detach().numpy())
-        # axes[1].axis('off')  # Turn off axes
-
-        # # Show the plot
-        # plt.show()
-        
-        # sdf
         #forward
         if torch.cuda.amp.autocast_mode:
             predictions = model(data)
-            loss = criterion(predictions.squeeze(1), label.float())
-            loss += dice_loss(F.sigmoid(predictions.squeeze(1)), label.float(), multiclass=False)
+            loss = criterion(predictions.unsqueeze(-1), label.float())
             
         #backward
         optimizer.zero_grad(set_to_none=True)
@@ -84,55 +56,30 @@ def train_fn(loader, val_loader, model, optimizer, criterion, grad_scaler):
     
     
     model.eval()
-    dice_score = 0
 
     with torch.no_grad():
         for x, y in val_loader:
             x = x.to(DEVICE)
             y = y.to(DEVICE)
             
-            mask_pred = (F.sigmoid(model(x)) > 0.5).float()
-            # compute the Dice score
-            dice_score += dice_coeff(mask_pred.squeeze(1), y, reduce_batch_first=False)
+            predictions = model(x)
+            loss = criterion(predictions.unsqueeze(-1), label.float())
+
 
     print(
-        dice_score / max(len(val_loader), 1)
+        loss / max(len(val_loader), 1)
     )
 
-    score = dice_score / max(len(val_loader), 1)
     
-    torch.save(model.state_dict(), os.path.join(PATH, f'checkpoint_manual_depth_{score}.pt'))
+    torch.save(model.state_dict(), os.path.join(PATH, f'checkpoint_manual_depth_{loss}.pt'))
 
 
 
 def main():
 
-    train_transform = A.Compose([
-        A.RandomCrop(IMG_HEIGHT, IMG_WIDTH),
-        A.Rotate(limit=35, p=1.0),
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=1.0),
-        # A.Normalize(
-        #     mean= [0, 0, 0,],
-        #     std= [1, 1, 1],
-        #     max_pixel_value=255.0
-        # ),
-        ToTensorV2()
-    ])
-
-    validate_transform = A.Compose([
-        A.CenterCrop(IMG_HEIGHT, IMG_WIDTH),
-        # A.Normalize(
-        #     mean= [0, 0, 0,],
-        #     std= [1, 1, 1],
-        #     max_pixel_value=255.0
-        # ),
-        ToTensorV2()
-    ])
-
-
-    model = UNET(in_channels=4, out_channels=1).to(DEVICE)
-    criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
+    model = LSTMRegressor(input_dim=2, hidden_dim=64, spatial_size = 1).to(DEVICE)
+    # criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss()
     
     optimizer = optim.Adam(model.parameters(),
                               lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY, foreach=True)
@@ -140,18 +87,29 @@ def main():
     grad_scaler = torch.cuda.amp.GradScaler(enabled=AMP)
     
     
-    train_loader, val_loader = get_loader(
-        TRAIN_STD_IMAGE_DIR,
-        TRAIN_ENTROPY_IMAGE_DIR,
-        TRAIN_DEPTH_MASK_DIR,
-        VAL_STD_IMAGE_DIR,
-        VAL_ENTROPY_IMAGE_DIR,
-        VAL_DEPTH_MASK_DIR,
-        BATCH_SIZE,
-        train_transform,
-        validate_transform
+    train_ds = LoadDataset(
+                    training_dir=TRAIN_DIR
     )
 
+    train_size = int(0.8 * len(train_ds))
+    val_size = len(train_ds) - train_size
+
+    train_dataset, val_dataset = random_split(train_ds, [train_size, val_size])
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size= BATCH_SIZE,
+        shuffle= True
+    )
+    
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size= BATCH_SIZE,
+        shuffle= False
+    )
+    
+    
+    
     for _ in range(NUM_EPOCHS):
         train_fn(train_loader, val_loader, model, optimizer, criterion, grad_scaler)
 

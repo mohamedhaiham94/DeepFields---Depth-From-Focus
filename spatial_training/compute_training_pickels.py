@@ -80,7 +80,7 @@ class ComputeTrainingPickels:
                 
                 # print(std_vector[69, :, :])
                 input_vector = np.stack((std_vector, entropy_vector), axis=-1)
-                # print(depth_vector.shape, input_vector[69, :, :, :])
+                # print(input_vector.shape, input_vector[69, :, :, :], depth_vector.shape)
                 # sdfsdf
                 # Save as pickle
                 file_path = os.path.join(self.out_dir, f"input_vector_{x}_{y}_scene_{scene_number}.pkl")
@@ -97,10 +97,10 @@ class ComputeTrainingPickels:
                     
 if __name__ == "__main__":
 
-    dataloader = ComputeTrainingPickels("data/spatial_data/scene_1/STD", 
-                             "data/spatial_data/scene_1/Entropy", 
-                             "data/spatial_data/scene_1/Depth",
+    dataloader = ComputeTrainingPickels("data/spatial_data/scenes/scene_2/STD", 
+                             "data/spatial_data/scenes/scene_2/Entropy", 
+                             "data/spatial_data/scenes/scene_2/depth",
                              "data/spatial_data/training_data",
-                             spatial_size = 2,
+                             spatial_size = 1,
                              scene_number = 1 
                              )
