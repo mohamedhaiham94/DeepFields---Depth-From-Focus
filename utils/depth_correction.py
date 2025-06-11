@@ -21,7 +21,7 @@ import Imath
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
-DIR = r'data/spatial_data/scenes/scene_2/Depth'
+DIR = r'data/tt'
 files = os.listdir(DIR)
 
 def read_exr():

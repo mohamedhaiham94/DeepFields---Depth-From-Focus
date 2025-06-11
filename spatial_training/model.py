@@ -89,8 +89,8 @@ def test():
 def test_LSTM():
     x = torch.randn((1, 100, 1, 1, 2))
 
-    model = LSTMRegressor(input_dim=2, hidden_dim=64, spatial_size = 1)
-
+    #model = LSTMRegressor(input_dim=2, hidden_dim=64, spatial_size = 1)
+    model = TransformerModel()
     predict = model(x)
     print(x.shape)
     print(predict)
@@ -99,6 +99,7 @@ def test_LSTM():
 class LSTMRegressor(nn.Module):
     def __init__(self, input_dim=2, hidden_dim=64, spatial_size = 1):
         super().__init__()
+        self.input_dim = input_dim
         self.spatial_size = spatial_size
         self.encoder = nn.Sequential(
             nn.Conv3d(1, 8, kernel_size=(spatial_size,spatial_size,2)),  # (B*T, 1, 1, 1, 2) -> (B*T, 2, 1, 1, 1)
@@ -108,7 +109,7 @@ class LSTMRegressor(nn.Module):
         self.fc = nn.Linear(hidden_dim, 1)
 
     def forward(self, x): 
-        B, T, D, H, W = x.shape
+        B, T, D, H = x.shape
         # x = x.unsqueeze(2)  # New shape: (1, 100, 1, spatial_size, spatial_size, 2)
 
         # #Combine batch and time
@@ -117,13 +118,102 @@ class LSTMRegressor(nn.Module):
         # x = self.encoder(x)             # -> (B*T, 2, spatial_size, spatial_size, 1)
         # print(x.shape)
         # sdf
-        x = x.view(B, T, 2)             # Flatten back: (B, T, 8)
+        x = x.view(B, T, self.input_dim)             # Flatten back: (B, T, 8)
 
         out, _ = self.lstm(x)     # (B, 100, H)
         return self.fc(out)       # (B, 100, 1)
 
+class TransformerModel(nn.Module):
+    def __init__(self, d_model=32, seq_len=100):
+        super().__init__()
+        self.input_proj = nn.Linear(1, d_model)
+        self.pos_encoding = nn.Parameter(torch.randn(1, seq_len, d_model))
+        encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=4)
+        self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.output_proj = nn.Linear(d_model, 1)
+
+    def forward(self, x):  # x: (B, T, 1, 1, 2)
+        x = x.view(x.size(0), x.size(1), 1)             # (B, T, 2)
+        x = self.input_proj(x)                          # (B, T, d_model)
+        x = x + self.pos_encoding[:, :x.size(1), :]     # (B, T, d_model)
+        out = self.encoder(x)                           # (B, T, d_model)
+        return self.output_proj(out)                    # (B, T, 1)
 
 
-# if __name__ == "__main__":
+class SimpleAutoencoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # Encoder: scalar -> latent
+        self.encoder = nn.Sequential(
+            nn.Linear(1, 8),
+            nn.ReLU(),
+            nn.Linear(8, 4),
+            nn.ReLU()
+        )
+        # Decoder: latent -> scalar
+        self.decoder = nn.Sequential(
+            nn.Linear(4, 8),
+            nn.ReLU(),
+            nn.Linear(8, 1)
+        )
+
+    def forward(self, x):  # x: (N, 1)
+        z = self.encoder(x)
+        out = self.decoder(z)
+        return out
+
+
+class ScalarSequenceClassifier(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(1, 16),
+            nn.ReLU(),
+            nn.Linear(16, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1)  # Output: raw logits
+        )
+
+    def forward(self, x):  # x: (B, T, 1)
+        return self.net(x)  # returns logits: (B, T, 1)
+
+class AttentionLSTM(nn.Module):
+    def __init__(self, hidden_dim=64):
+        super().__init__()
+        self.lstm = nn.LSTM(input_size=1, hidden_size=hidden_dim, batch_first=True, bidirectional=True)
+        self.attn = nn.Linear(hidden_dim * 2, 1)
+        self.fc = nn.Linear(hidden_dim * 2, 1)
+
+    def forward(self, x):  # x: (batch, seq_len, 1)
+        B, T, D, H = x.shape
+
+        x = x.view(B, T, 1)             # Flatten back: (B, T, 8)
+
+        lstm_out, _ = self.lstm(x)  # (batch, seq_len, hidden*2)
+        
+        # Attention weights
+        attn_weights = torch.softmax(self.attn(lstm_out), dim=1)  # (batch, seq_len, 1)
+        attended = attn_weights * lstm_out  # weighted sum
+        output = self.fc(attended)  # (batch, seq_len, 1)
+        return output
+
+class MLP(nn.Module):
+    def __init__(self, in_channels):
+        super().__init__()
+
+        self.mlp = nn.Sequential(
+            nn.Linear(in_channels, 8),
+            nn.ReLU(),
+            nn.Linear(8, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1)
+        )
+
+        # self.weights = nn.Parameter(torch.randn((in_channels)), requires_grad=True)
+    
+    def forward(self, x):
+        x = self.mlp(x)
+        return x 
+#if __name__ == "__main__":
 
 #     test_LSTM()

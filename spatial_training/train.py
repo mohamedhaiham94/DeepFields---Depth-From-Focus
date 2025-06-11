@@ -3,57 +3,60 @@ import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
-from model import LSTMRegressor
+from model import LSTMRegressor, TransformerModel, SimpleAutoencoder, ScalarSequenceClassifier, AttentionLSTM, MLP
 from dataset import LoadDataset
 import os
 import logging
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from torch.utils.data import random_split
+from torch.cuda.amp import autocast, GradScaler
 
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
-
 #HyperParameters
-
-LEARNING_RATE = 1e-4
-WEIGHT_DECAY = 1e-8
-MOMENTUM = 0.999
-AMP = False
+LEARNING_RATE = 0.001
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 16
-NUM_EPOCHS = 30
+BATCH_SIZE = 64
+NUM_EPOCHS = 15
 NUM_WORKER = 1
-TRAIN_DIR = "data/spatial_data/training_data"
+TRAIN_DIR = "data/spatial_data/train_data/training_data_44/positive"
 PATH = "spatial_training/checkpoints"
 
 
-def train_fn(loader, val_loader, model, optimizer, criterion, grad_scaler):
+def train_fn(loader, val_loader, model, optimizer, criterion):
     loop = tqdm(loader)
-    gradient_clipping: float = 1.0
+
     
     model.train()
     for idx, (data, label) in enumerate(loop):
-        optimizer.zero_grad()
 
         data = data.to(DEVICE)
         label = label.to(DEVICE)
 
         #forward
-        if torch.cuda.amp.autocast_mode:
-            predictions = model(data)
-            loss = criterion(predictions.unsqueeze(-1), label.float())
-            
+        # print(data[:, 0].shape, data.shape)
+        # sdf
+        predictions = model(data)
+
+        # loss = criterion(predictions.unsqueeze(-1), label.float())
+        # print(label.squeeze(-1).squeeze(-1), predictions)
+        
+        loss = criterion(predictions, label.squeeze(-1).float())
+
         #backward
-        optimizer.zero_grad(set_to_none=True)
-        grad_scaler.scale(loss).backward()
-        grad_scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
-        grad_scaler.step(optimizer)
-        grad_scaler.update()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # grad_scaler.scale(loss).backward()
+        # grad_scaler.unscale_(optimizer)
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
+        # grad_scaler.step(optimizer)
+        # grad_scaler.update()
         
         # print(loss.item())
-        loop.set_postfix(loss = loss.item())
-    
+        # if idx % 10 == 0:
+        loop.set_postfix(loss=loss.item())    
     
     model.eval()
 
@@ -62,44 +65,54 @@ def train_fn(loader, val_loader, model, optimizer, criterion, grad_scaler):
             x = x.to(DEVICE)
             y = y.to(DEVICE)
             
+            # x = x.view(x.size(0), -1)
+
             predictions = model(x)
-            loss = criterion(predictions.unsqueeze(-1), label.float())
+            loss = criterion(predictions, y.squeeze(-1).float())
 
 
     print(
         loss / max(len(val_loader), 1)
     )
-
     
-    torch.save(model.state_dict(), os.path.join(PATH, f'checkpoint_manual_depth_{loss}.pt'))
-
-
+    
+    
+    torch.save(model.state_dict(), os.path.join(PATH, f'checkpoint_44.pt'))
 
 def main():
-
-    model = LSTMRegressor(input_dim=2, hidden_dim=64, spatial_size = 1).to(DEVICE)
+    print(DEVICE)
+    # model = LSTMRegressor(input_dim=1, hidden_dim=16, spatial_size = 1).to(DEVICE)
+    # model = TransformerModel().to(DEVICE)
+    model = MLP(2).to(DEVICE)
+    
+    
+    
     # criterion = nn.CrossEntropyLoss() if model.n_classes > 1 else nn.BCEWithLogitsLoss()
-    criterion = nn.BCEWithLogitsLoss()
+    pos_weight = 0.0028 #28.021620671713926
+    pos_weight = torch.tensor(pos_weight).cuda()
+
+    criterion = nn.BCEWithLogitsLoss().to(DEVICE)
     
     optimizer = optim.Adam(model.parameters(),
-                              lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY, foreach=True)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=5)  # goal: maximize Dice score
-    grad_scaler = torch.cuda.amp.GradScaler(enabled=AMP)
+                              lr=LEARNING_RATE)
     
     
     train_ds = LoadDataset(
                     training_dir=TRAIN_DIR
     )
 
-    train_size = int(0.8 * len(train_ds))
+    train_size = int(0.80 * len(train_ds))
     val_size = len(train_ds) - train_size
 
-    train_dataset, val_dataset = random_split(train_ds, [train_size, val_size])
+    generator1 = torch.Generator().manual_seed(42)
+    train_dataset, val_dataset = random_split(train_ds, [train_size, val_size], generator=generator1)
 
     train_loader = DataLoader(
         train_dataset,
         batch_size= BATCH_SIZE,
-        shuffle= True
+        shuffle= True,
+        num_workers=NUM_WORKER,
+        pin_memory=True
     )
     
     val_loader = DataLoader(
@@ -111,7 +124,7 @@ def main():
     
     
     for _ in range(NUM_EPOCHS):
-        train_fn(train_loader, val_loader, model, optimizer, criterion, grad_scaler)
+        train_fn(train_loader, val_loader, model, optimizer, criterion)
 
 
 

@@ -14,7 +14,8 @@ class ComputeTrainingPickels:
     def __init__(self, img_std_dir, 
                  img_entropy_dir, 
                  img_depth_mask_dir, 
-                 out_dir, 
+                 out_dir_positive, 
+                 out_dir_negative, 
                  spatial_size,
                  scene_number) -> None:
         super().__init__()
@@ -22,7 +23,8 @@ class ComputeTrainingPickels:
         self.img_std_dir = img_std_dir
         self.img_entropy_dir = img_entropy_dir
         self.img_depth_mask_dir = img_depth_mask_dir
-        self.out_dir = out_dir
+        self.out_dir_positive = out_dir_positive
+        self.out_dir_negative = out_dir_negative
         self.spatial_size = spatial_size
         self.scene_number = scene_number
 
@@ -43,7 +45,7 @@ class ComputeTrainingPickels:
         std_images = []
         entropy_images = []
         depth_mask_images = []
-        
+
         for std_file, entropy_file, depth_file in zip(img_std_files, img_entropy_files, img_depth_mask_files):
 
             std_img = Image.open(os.path.join(self.img_std_dir, std_file))
@@ -61,6 +63,10 @@ class ComputeTrainingPickels:
 
         return std_images, entropy_images, depth_mask_images
     
+    def save_pickle(self, data, path):
+        with open(path, 'wb') as f:
+            pickle.dump(data, f)
+
     def saving_pickles(self, spatial_size, scene_number):
         '''
             spatial_size: (int) is the size of the slicing stack 1x1 or 2x2 or nxn
@@ -70,37 +76,70 @@ class ComputeTrainingPickels:
         entropy_stack = np.stack(entropy_images)  # shape: (num_images, height, width)
         depth_stack = np.stack(depth_images) / 255
         # slice_2x2x100 = std_stack[69:70, 0:2, 0:2] # z, y, x
+        
+        avg_std = std_stack[scene_number].mean()
 
         # Iterate over spatial dimensions
         for x in tqdm(range(std_stack.shape[1] - spatial_size), desc="Processing X"):
             for y in tqdm(range(std_stack.shape[2] - spatial_size), desc="Processing Y", leave=False):
-                std_vector = std_stack[:, y:y+spatial_size, x:x+spatial_size] 
-                entropy_vector = entropy_stack[:, y:y+spatial_size, x:x+spatial_size] 
-                depth_vector = depth_stack[:, y:y+spatial_size, x:x+spatial_size] 
-                
-                # print(std_vector[69, :, :])
-                input_vector = np.stack((std_vector, entropy_vector), axis=-1)
+                std_vector = std_stack[scene_number, y:y+spatial_size, x:x+spatial_size] 
+                entropy_vector = entropy_stack[scene_number, y:y+spatial_size, x:x+spatial_size] 
+                depth_vector = depth_stack[scene_number, y:y+spatial_size, x:x+spatial_size] 
+
+
+                # input_vector = np.stack((std_vector, entropy_vector), axis=-1)
+                input_vector = np.append(std_vector, avg_std)
+
                 # print(input_vector.shape, input_vector[69, :, :, :], depth_vector.shape)
                 # sdfsdf
                 # Save as pickle
-                file_path = os.path.join(self.out_dir, f"input_vector_{x}_{y}_scene_{scene_number}.pkl")
-                with open(file_path, 'wb') as f:
-                    pickle.dump(input_vector, f)
-                    
-                # file_path = os.path.join(self.out_dir, f"entropy_vector_{x}_{y}_scene_{scene_number}.pkl")
-                # with open(file_path, 'wb') as f:
-                #     pickle.dump(entropy_vector, f)
-                    
-                file_path = os.path.join(self.out_dir, f"depth_vector_{x}_{y}_scene_{scene_number}.pkl")
-                with open(file_path, 'wb') as f:
-                    pickle.dump(depth_vector, f)
+
+
+                if sum(depth_vector) > 0:
+                    file_path = os.path.join(self.out_dir_positive, f"input_vector_{x}_{y}_scene_{scene_number}.pkl")
+                    with open(file_path, 'wb') as f:
+                        pickle.dump(input_vector, f)
+                        
+                    # file_path = os.path.join(self.out_dir_positive, f"entropy_vector_{x}_{y}_scene_{scene_number}.pkl")
+                    # with open(file_path, 'wb') as f:
+                    #     pickle.dump(entropy_vector, f)
+                        
+                    file_path = os.path.join(self.out_dir_positive, f"depth_vector_{x}_{y}_scene_{scene_number}.pkl")
+                    with open(file_path, 'wb') as f:
+                        pickle.dump(depth_vector, f)
+                else:
+                    file_path = os.path.join(self.out_dir_negative, f"input_vector_{x}_{y}_scene_{scene_number}.pkl")
+                    with open(file_path, 'wb') as f:
+                        pickle.dump(input_vector, f)
+                        
+                    # file_path = os.path.join(self.out_dir_negative, f"entropy_vector_{x}_{y}_scene_{scene_number}.pkl")
+                    # with open(file_path, 'wb') as f:
+                    #     pickle.dump(entropy_vector, f)
+                        
+                    file_path = os.path.join(self.out_dir_negative, f"depth_vector_{x}_{y}_scene_{scene_number}.pkl")
+                    with open(file_path, 'wb') as f:
+                        pickle.dump(depth_vector, f)
                     
 if __name__ == "__main__":
 
-    dataloader = ComputeTrainingPickels("data/spatial_data/scenes/scene_2/STD", 
-                             "data/spatial_data/scenes/scene_2/Entropy", 
-                             "data/spatial_data/scenes/scene_2/depth",
-                             "data/spatial_data/training_data",
-                             spatial_size = 1,
-                             scene_number = 1 
-                             )
+
+    for i in range(47, 100):
+        # Create unique training data folder for this iteration
+        training_data_dir = f"data/spatial_data/train_data/training_data_{i+1}"
+        positive_dir = os.path.join(training_data_dir, "positive")
+        negative_dir = os.path.join(training_data_dir, "negative")
+        
+        # Create directories if they don't exist
+        os.makedirs(positive_dir, exist_ok=True)
+        os.makedirs(negative_dir, exist_ok=True)
+        
+        # Run the data loader with current iteration's paths
+        dataloader = ComputeTrainingPickels(
+            "data/spatial_data/scenes/scene_1/STD",
+            "data/spatial_data/scenes/scene_1/Entropy",
+            "data/spatial_data/scenes/scene_1/depth",
+            positive_dir,
+            negative_dir,
+            spatial_size=1,
+            scene_number=i
+        )

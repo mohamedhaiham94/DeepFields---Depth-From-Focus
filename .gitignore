@@ -25,6 +25,7 @@ develop-eggs/
 dist/
 downloads/
 out/
+FailedExp/
 spatial_training/checkpoints
 eggs/
 .eggs/
