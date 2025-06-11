@@ -33,6 +33,8 @@ location = [
 (0.25, -2.25, 5), (0.75, -2.25, 5), (1.25, -2.25, 5), (1.75, -2.25, 5), (2.25, -2.25, 5)
 ]
 
+print(len(location))
+sdf
 distance = 0.25
 x_vals = [-2.25 + distance * i for i in range(10)]  # from -2.25 to 2.25 (step distance)
 y_vals = [2.25 + (distance * -1) * i for i in range(10)]   # from 2.25 to -2.25 (step distance)
