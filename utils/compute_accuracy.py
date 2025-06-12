@@ -1,3 +1,14 @@
+
+
+
+'''
+
+For precise resulte check notebooks/create_ground_truth.ipynb
+
+
+'''
+
+
 import os
 import cv2
 import numpy as np
@@ -20,8 +31,8 @@ def load_image_stack(folder_path, size=None):
     return np.stack(stack, axis=0)  # Shape: (N, H, W)
 
 # Paths to your two folders (each with 100 binary images)
-folder1 = 'data/damage_crop/TopDown/STD_ENTROPY_0.03_CM'
-folder2 = r'd:\Research\3-Research(DeepFields)\Experiment\Depth\Mohamed\damage_topDown\Depth'
+folder1 = 'out/TopDown/STD_ENTROPY_3_CM'
+folder2 = 'out/TopDown/STD_ENTROPY_3_CM_GR'
 
 # Load both stacks
 stack1 = load_image_stack(folder1)

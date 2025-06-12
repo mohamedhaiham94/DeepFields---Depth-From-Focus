@@ -33,9 +33,9 @@ class ProcessingDatasetClass:
         image_data_len = len(depth_data)
         
         
-        record_modes  = ['TopDown', 'Circular']
-        metrics  = ['max', 'min', 'mean']
-        feature_types  = ['Entropy', 'STD'] #Spatial_STD
+        record_modes  = ['TopDown'] #Circular
+        metrics  = ['max'] #, 'min', 'mean'
+        feature_types  = ['Entropy'] #Spatial_STD, Entropy
         
         for record_mode in tqdm(record_modes, desc="Record Modes"):
             for metric in tqdm(metrics, desc=f"{record_mode} - Metrics", leave=False):
@@ -44,12 +44,14 @@ class ProcessingDatasetClass:
                     image_data = sorted(os.listdir(os.path.join(self.dataset_path, record_mode, metric, feature_type)),key=numericalSort)
                     for i in tqdm(range(image_data_len), desc=f"{record_mode}-{metric}-{feature_type} Images", leave=False):
                         image = cv2.imread(os.path.join(self.dataset_path, record_mode, metric, feature_type, image_data[i]), cv2.IMREAD_UNCHANGED)
-                        depth = cv2.imread(os.path.join(self.depth_path, depth_data[i]), cv2.IMREAD_UNCHANGED).astype(np.float32)
+                        depth = cv2.imread(os.path.join(self.depth_path, depth_data[i]), 0) / 255
                         data = []
+                        avg_value = np.mean(image)
+                        
                         for y in range(width):
                             for x in range(height):    
                                  data.append(
-                                    {"x": y, "y": x, metric+'_'+feature_type: image[x,y], "depth_value":depth[x, y]}
+                                    {"x": y, "y": x, metric+'_'+feature_type: image[x,y], "depth_value":depth[x, y], "avg_value":avg_value}
                                 )
                         df = pd.DataFrame(data)
                         file_name = f"Image_{i + 1}_{metric}_{feature_type}.csv"
