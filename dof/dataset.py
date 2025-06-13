@@ -35,7 +35,7 @@ class ProcessingDatasetClass:
         
         record_modes  = ['TopDown'] #Circular
         metrics  = ['max'] #, 'min', 'mean'
-        feature_types  = ['Entropy'] #Spatial_STD, Entropy
+        feature_types  = ['percentile_rank'] #Spatial_STD, Entropy
         
         for record_mode in tqdm(record_modes, desc="Record Modes"):
             for metric in tqdm(metrics, desc=f"{record_mode} - Metrics", leave=False):

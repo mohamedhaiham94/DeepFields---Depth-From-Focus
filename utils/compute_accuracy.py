@@ -31,8 +31,8 @@ def load_image_stack(folder_path, size=None):
     return np.stack(stack, axis=0)  # Shape: (N, H, W)
 
 # Paths to your two folders (each with 100 binary images)
-folder1 = 'out/TopDown/STD_ENTROPY_3_CM'
-folder2 = 'out/TopDown/STD_ENTROPY_3_CM_GR'
+folder1 = 'out/TopDown/STD_0.03_CM'
+folder2 = 'out/TopDown/GT'
 
 # Load both stacks
 stack1 = load_image_stack(folder1)
